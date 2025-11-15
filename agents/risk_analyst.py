@@ -1,7 +1,7 @@
 # agents/risk_analyst.py
 from .base_agent import BaseAgent
 
-class RiskAnalystAgeng(BaseAgent):
+class RiskAnalystAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="RiskAnalyst")
 
