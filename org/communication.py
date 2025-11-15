@@ -1,5 +1,6 @@
 # org/communication.py
 from typing import List, Dict
+import datetime
 
 class Message:
     def __init__(self, sender, receiver, content, task_id=None):
@@ -7,7 +8,7 @@ class Message:
         self.receiver = receiver
         self.content = content
         self.task_id = task_id
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.datetime.now(datetime.timezone.utc)
 
 class CommunicationHub:
     def __init__(self):
