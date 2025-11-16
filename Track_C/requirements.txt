@@ -1,0 +1,28 @@
+# Core ML libraries
+torch>=2.0.0
+transformers>=4.30.0
+peft>=0.4.0
+accelerate>=0.20.0
+bitsandbytes>=0.41.0
+
+# Data processing
+datasets>=2.12.0
+pandas>=1.5.0
+numpy>=1.24.0
+
+# Evaluation
+lm-eval>=0.3.0
+
+# API clients
+openai>=1.0.0
+
+# Visualization
+matplotlib>=3.7.0
+
+# Utilities
+tqdm>=4.65.0
+scikit-learn>=1.3.0
+
+# Optional: For faster inference (Linux only)
+# triton>=2.0.0  # Required for torch.compile on non-Windows systems
+
