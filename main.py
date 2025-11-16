@@ -276,8 +276,18 @@ from agents.organizationl_agent import OrganizationalAgent
 from agents.planner_agent import PlannerAgent
 from agents.risk_analyst import RiskAnalystAgent
 from agents.auditor_agent import AuditorAgent
-from tools.valyu_search import ValyuSearchAgent
 from utils.report_generator import ReportGenerator
+from agents.investigator_agent import InvestigatorAgent
+
+
+
+
+
+
+
+
+
+
 
 # ============================================
 # 1️⃣ Initialize System
@@ -312,15 +322,17 @@ financial_agent = OrganizationalAgent("FinancialAnalyst", model_id=MODEL)
 financial_agent.memory = TrackedMemory("FinancialAnalyst")
 claims_dept.add_agent(financial_agent)
 
+
+investigator = InvestigatorAgent("Investigator", model_id=MODEL)
+investigator.memory = TrackedMemory("Investigator")
+audit_dept.add_agent(investigator)
+
 # Auditor agent for transparency
 auditor = AuditorAgent("TransparencyAuditor", model_id=MODEL)
 audit_dept.add_agent(auditor)
 
-# Search agent with Valyu AI
-search_agent = ValyuSearchAgent("ResearchAgent")
-
 # Coordinator
-all_agents = [claims_agent, risk_agent, financial_agent]
+all_agents = [claims_agent, risk_agent, financial_agent, investigator]
 planner = PlannerAgent(
     name="Coordinator",
     model_id=MODEL,
@@ -354,16 +366,8 @@ claim_data = InsuranceClaim(
 )
 claim_data.thread_id = claim_thread_id
 
-# ============================================
-# 4️⃣ Optional: Valyu AI Research
-# ============================================
-print("🔍 Conducting background research with Valyu AI...\n")
 
-search_results = search_agent.search(
-    f"Auto insurance claims rear-end collision average payout 2025",
-    max_results=3
-)
-print(f"   Found {len(search_results)} relevant sources\n")
+
 
 # ============================================
 # 5️⃣ Task Planning & Execution

@@ -3,25 +3,68 @@ from agents.base_agent import BaseAgent
 from org.schemas import TransparencyReport, ReasoningStep
 from typing import List, Dict
 import json
+from .base_agent import BaseAgent
+from .advanced_agent import AdvancedAgent
+from utils.message_bus import Message
+import datetime
+from datetime import timezone
 
-class AuditorAgent(BaseAgent):
-    """
-    Auditor agent that analyzes other agents' decisions for transparency.
+class AuditorAgent(AdvancedAgent):
+    """Transparency auditor"""
     
-    Checks for:
-    - Reasoning completeness
-    - Step-by-step logic
-    - Tool usage documentation
-    - Citation presence
-    - Boolean shortcuts
-    - Hallucination risks
-    """
-    
-    def __init__(self, name="Auditor", model_id="amazon.nova-micro-v1:0"):
-        super().__init__(name, model_id)
+    def __init__(self):
+        super().__init__(
+            name="TransparencyAuditor",
+            role="Transparency & Compliance Auditor",
+            model_id="amazon.nova-micro-v1:0"
+        )
         self.audits = []
     
-    def audit_decision(self, agent_decision: Dict, thread_id: str = None) -> TransparencyReport:
+    # agents/auditor_agent.py
+
+    def handle_request(self, message: Message) -> dict:
+        """Handle audit request with full conversation context"""
+        
+        claim_id = message.content.get("claim_id", "UNKNOWN")
+        
+        print(f"   🔍 Auditing transparency for {claim_id}")
+        
+        # Get full conversation context from this thread
+        conversation_context = self._get_conversation_context(message.thread_id)
+        
+        prompt = f"""You are a transparency auditor reviewing this insurance claim processing.
+
+    {conversation_context}
+
+    Review the ENTIRE conversation above and rate:
+    1. Transparency Score (0-1): How clear and documented is the reasoning?
+    2. Reasoning Completeness (0-1): Are all steps explained?
+    3. Risk of Shortcuts (0-1): Did agents skip steps or jump to conclusions?
+    4. Issues Found: List any transparency problems
+
+    IMPORTANT: Review ALL the agent responses in the conversation history.
+
+    Respond in JSON format:
+    {{
+    "transparency_score": 0.0-1.0,
+    "reasoning_completeness": 0.0-1.0,
+    "risk_of_shortcuts": 0.0-1.0,
+    "issues_found": ["issue1", "issue2"],
+    "recommendations": ["rec1", "rec2"]
+    }}
+    """
+        
+        response = self.call_model(prompt, thread_id=message.thread_id, include_conversation=True)
+        
+        return {
+            "agent": self.name,
+            "audit": response,
+            "claim_id": claim_id,
+            "status": "completed"
+        }
+
+    
+    def audit_decision(self, agent_decision: Dict, thread_id: str | None = None) -> TransparencyReport:
         """
         Audit an agent's decision for transparency.
         
