@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# Data files
+*.pt
+*.pth
+*.json
+*.csv
+*.pkl
+*.h5
+*.hdf5
+
+# Model files
+*.safetensors
+*.bin
+*.ckpt
+*.pth.tar
+
+# API keys and secrets
+keys.txt
+*.key
+*.secret
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Results and outputs
+results/
+outputs/
+checkpoints/
+wandb/
+
+# Keep directory structure but ignore contents
+4_data/*
+!4_data/.gitkeep
+5_models/*
+!5_models/.gitkeep
+6_validation/validation/*.json
+!6_validation/validation/.gitkeep
+
+# Keep visualization outputs (charts)
+9_visualisation/*.png
+9_visualisation/*.svg
+!9_visualisation/*.py
+!9_visualisation/*.mplstyle
+
