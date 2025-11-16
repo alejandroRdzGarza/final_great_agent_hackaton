@@ -47,9 +47,12 @@ logged and traceable, allowing for a complete audit of your reasoning.
 """
 
 
+from valyu import Valyu
+import os
+
 class SIUInvestigatorAgent(AdvancedAgent):
     """
-    Special Investigations Unit (SIU) Investigator
+    Special Investigations Unit (SIU) Investigator with Valyu Search
     
     Focus: Fraud detection, evidence gathering, professional skepticism
     Output: Investigation report with confidence level (0-100%)
@@ -62,9 +65,52 @@ class SIUInvestigatorAgent(AdvancedAgent):
             model_id=model_id
         )
         self.investigations = {}
+        
+        # Initialize Valyu client
+        api_key = os.getenv("VALYU_API_KEY")
+        if not api_key:
+            print("⚠️  VALYU_API_KEY not found - search capabilities disabled")
+            self.valyu_client = None
+        else:
+            try:
+                self.valyu_client = Valyu(api_key=api_key)
+                print("✅ Valyu search initialized for SIU Investigator")
+            except Exception as e:
+                print(f"⚠️  Failed to initialize Valyu: {e}")
+                self.valyu_client = None
+    
+    def perform_valyu_search(self, query: str) -> str:
+        """Perform search using Valyu and return formatted results"""
+        if not self.valyu_client:
+            return "Search unavailable - Valyu not configured"
+        
+        try:
+            print(f"   🔍 Valyu searching: {query}")
+            response = self.valyu_client.search(query)
+            
+            if not response or not response.results:
+                return "No relevant information found in search."
+            
+            # Format results for the agent's analysis
+            formatted_results = []
+            for i, result in enumerate(response.results[:3], 1):  # Top 3 results
+                title = getattr(result, 'title', 'Untitled')
+                content = getattr(result, 'content', 'No content available')[:300]  # Limit content length
+                url = getattr(result, 'url', 'No URL')
+                
+                formatted_results.append(
+                    f"{i}. {title}\n"
+                    f"   Source: {url}\n"
+                    f"   Content: {content}...\n"
+                )
+            
+            return "\n".join(formatted_results)
+            
+        except Exception as e:
+            return f"Search failed: {str(e)}"
     
     def handle_request(self, message: Message) -> Optional[Dict]:
-        """Handle fraud investigation request"""
+        """Handle fraud investigation request with Valyu search integration"""
         
         claim_data = message.content.get("claim", {})
         claim_id = message.content.get("claim_id", "UNKNOWN")
@@ -74,51 +120,11 @@ class SIUInvestigatorAgent(AdvancedAgent):
         # Get any previous context
         conversation_context = self._get_conversation_context(message.thread_id)
         
-        # Build investigation prompt
-        prompt = f"""{CORE_INSURANCE_PROTOCOL}
-
-AI Agent Task: SIU Investigator -----
-
-You are a Special Investigations Unit (SIU) Investigator. Your primary directive
-is to seek the truth and prevent fraud. You are the company's expert defense
-against those who would exploit the system.
-
-Your core value is professional skepticism. You are not cynical, but you are
-analytical. You understand that things are not always as they seem. You are an
-objective, neutral fact-finder, and your investigations must be thorough, unbiased,
-and relentlessly factual.
-
-Your mindset is that of a detective:  
-- Red Flags are Your Starting Point: While an adjuster sees a "problem," you see
-  a "red flag" as the beginning of an investigation.
-- Truth Over Speed: Your priority is accuracy, not efficiency.
-- Find the Inconsistency: Find the "delta" — the gap between the claimant's story,
-  the physical evidence, and common sense.
-- Protect the Honest Customer: Fraudulent claims raise premiums for everyone.
-
-Operational Directives & Observability:  
-- Show Your Work: 100% transparency in your reasoning
-- Always Justify: Explain why you reach conclusions
-- Cite the Evidence: Point to specific, observable facts
-- Provide Recommendations with confidence interval (0% to 100%)
-
-Response Style (Slack Conversation):
-- Be concise and conversational (2–5 short paragraphs)
-- Start with clear summary: "Verdict: LEGITIMATE/SUSPICIOUS/FRAUDULENT (X% confidence)"
-- Highlight only the most relevant evidence or red flags
-- Keep it tight but justified and professional
-
-{conversation_context if conversation_context != "No previous conversation." else ""}
-
-CLAIM TO INVESTIGATE:
-- Claim ID: {claim_id}
-- Claimant: {claim_data.get('claimant_name', 'Unknown')}
-- Type: {claim_data.get('claim_type', 'Unknown')}
-- Amount: ${claim_data.get('claim_amount', 0):,.2f}
-- Description: {claim_data.get('description', 'No description provided')}
-
-Conduct your investigation and provide your findings in Slack-style format.
-"""
+        # Perform targeted searches based on claim type
+        search_results = self._perform_investigation_searches(claim_data)
+        
+        # Build investigation prompt with search results
+        prompt = self._build_investigation_prompt(claim_data, claim_id, conversation_context, search_results)
         
         # Call model
         response = self.call_model(
@@ -144,9 +150,141 @@ Conduct your investigation and provide your findings in Slack-style format.
             "agent": self.name,
             "investigation": response,
             "claim_id": claim_id,
+            "search_queries_used": list(search_results.keys()),
             "status": "completed"
         }
+    
+    def _perform_investigation_searches(self, claim_data: Dict) -> Dict[str, str]:
+        """Perform targeted searches based on claim characteristics"""
+        search_results = {}
+        
+        if not self.valyu_client:
+            return search_results
+        
+        # Extract key claim information for search queries
+        claim_type = claim_data.get("claim_type", "").lower()
+        description = claim_data.get("description", "").lower()
+        claimant_name = claim_data.get("claimant_name", "")
+        
+        # Define search queries based on claim content
+        search_queries = []
+        
+        # Business vs hobby disputes (common in homeowners claims)
+        if any(word in description for word in ['business', 'hobby', 'etsy', 'llc', 'sales']):
+            search_queries.extend([
+                "insurance business pursuit exclusion homeowners policy",
+                "hobby vs business insurance claims court cases",
+                "home-based business insurance coverage denial"
+            ])
+        
+        # Fire-related claims
+        if 'fire' in description:
+            search_queries.extend([
+                "fire cause and origin investigation insurance",
+                "electrical fire claims homeowners insurance",
+                "workshop fire insurance claims business exclusion"
+            ])
+        
+        # Material misrepresentation
+        if any(word in description for word in ['misrepresentation', 'conceal', 'disclose', 'lied']):
+            search_queries.extend([
+                "insurance material misrepresentation cases",
+                "concealment fraud insurance law",
+                "voiding insurance policy misrepresentation"
+            ])
+        
+        # Add general fraud detection queries
+        search_queries.extend([
+            "insurance fraud detection techniques 2024",
+            "red flags insurance claims investigation",
+            f"{claim_type} insurance claim fraud patterns"
+        ])
+        
+        # Execute searches
+        for query in search_queries[:4]:  # Limit to 4 searches to avoid rate limits
+            try:
+                results = self.perform_valyu_search(query)
+                search_results[query] = results
+            except Exception as e:
+                search_results[query] = f"Search failed: {str(e)}"
+        
+        return search_results
+    
+    def _build_investigation_prompt(self, claim_data: Dict, claim_id: str, conversation_context: str, search_results: Dict) -> str:
+        """Build comprehensive investigation prompt with search results"""
+        
+        # Format search results for the prompt
+        search_context = ""
+        if search_results:
+            search_context = "\n\nEXTERNAL RESEARCH FINDINGS:\n"
+            for query, results in search_results.items():
+                search_context += f"\nSearch: '{query}'\n"
+                search_context += f"Results: {results}\n{'-'*50}"
+        else:
+            search_context = "\n\nNote: No external research was conducted for this investigation."
+        
+        prompt = f"""{CORE_INSURANCE_PROTOCOL}
 
+AI Agent Task: SIU Investigator -----
+
+You are a Special Investigations Unit (SIU) Investigator. Your primary directive
+is to seek the truth and prevent fraud. You are the company's expert defense
+against those who would exploit the system.
+
+Your core value is professional skepticism. You are not cynical, but you are
+analytical. You understand that things are not always as they seem. You are an
+objective, neutral fact-finder, and your investigations must be thorough, unbiased,
+and relentlessly factual.
+
+Your mindset is that of a detective:  
+- Red Flags are Your Starting Point: While an adjuster sees a "problem," you see
+  a "red flag" as the beginning of an investigation.
+- Truth Over Speed: Your priority is accuracy, not efficiency.
+- Find the Inconsistency: Find the "delta" — the gap between the claimant's story,
+  the physical evidence, and common sense.
+- Protect the Honest Customer: Fraudulent claims raise premiums for everyone.
+
+Operational Directives & Observability:  
+- Show Your Work: 100% transparency in your reasoning
+- Always Justify: Explain why you reach conclusions
+- Cite the Evidence: Point to specific, observable facts
+- Reference external research when it informs your judgment
+- Provide Recommendations with confidence interval (0% to 100%)
+
+Response Style (Slack Conversation):
+- Be concise and conversational (2–5 short paragraphs)
+- Start with clear summary: "Verdict: LEGITIMATE/SUSPICIOUS/FRAUDULENT (X% confidence)"
+- Highlight only the most relevant evidence or red flags
+- Mention how online search aided your judgment when relevant
+- Keep it tight but justified and professional
+
+{conversation_context if conversation_context != "No previous conversation." else ""}
+
+CLAIM TO INVESTIGATE:
+- Claim ID: {claim_id}
+- Claimant: {claim_data.get('claimant_name', 'Unknown')}
+- Type: {claim_data.get('claim_type', 'Unknown')}
+- Amount: ${claim_data.get('claim_amount', 0):,.2f}
+- Description: {claim_data.get('description', 'No description provided')}
+
+{search_context}
+
+INVESTIGATION TASK:
+Analyze this claim considering:
+1. Internal evidence from the claim description
+2. External research findings above
+3. Industry patterns and red flags
+4. Legal and regulatory context
+
+Specifically mention in your analysis:
+- How the external research influenced your assessment (if applicable)
+- Any patterns or precedents found in the search results
+- Whether the search confirmed or contradicted initial suspicions
+
+Provide your final assessment with confidence level.
+"""
+
+        return prompt
 
 class ClaimsAdjusterAgent(AdvancedAgent):
     """
