@@ -1,1 +1,1 @@
-Navigate to track directories for more info
+Navigate to track directories for specific info
