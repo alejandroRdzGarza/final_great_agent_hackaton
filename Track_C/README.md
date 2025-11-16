@@ -275,6 +275,6 @@ SOFTWARE.
 
 If you use this code, please cite:
 ```
-CRD2-GreatAgentHack2025- Nichita Mitrea, Stefan Mandris, Tom Houghton, Jesus Garza, Pable Islas.
+CRD2-GreatAgentHack2025- Nichita Mitrea, Stefan Mandris, Tom Houghton, Jesus Garza, Pablo Islas.
 ```
 
